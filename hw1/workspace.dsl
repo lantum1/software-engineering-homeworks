@@ -1,33 +1,21 @@
-workspace {    
+workspace {
+    !identifiers hierarchical
+    !impliedRelationships false
+
     name "MAX Disk 360"
     description "Отечественная онлайн система хранения файлов MAX Disk 360"
 
     model {
-        customer = person "Потребитель" {
+        customer = person "Пользователь" {
             description "Пользователь системы - целевой клиент, потребитель"
-            tags "Customer"
-        }
-        admin = person "Администратор" {
-            description "Пользователь системы - сотрудник команды поддержки системы"
-            tags "Person"
         }
         
         telegram = softwareSystem "Telegram" {
-            description "Внешняя платформа для доставки сообщений Потребителям"
+            description "Внешняя платформа для доставки сообщений пользователю"
             tags "ExternalSystem"
         }
         maxDisk360 = softwareSystem "MAX Disk 360" {
             description "Отечественная онлайн система хранения файлов"
-
-            gateway = container "API Gateway" {
-                description "Проверяет JWT токены, роль пользователей и проксирует запросы к внутренним сервисам"
-                technology "C++ Poco"
-            }
-
-            identityService = container "Identity Service" {
-                description "Отвечает за аутентификацию, генерацию JWT токенов и управление учетными записями пользователей"
-                technology "C++ Poco"
-            }
 
             identityDb = container "Identity Database" {
                 description "Хранит пользователей и их роли"
@@ -35,40 +23,50 @@ workspace {
                 tags "Database"
             }
 
-            fileManagementService = container "File Management Service" {
-                description "Управляет файлами и метаданными Потребителей"
-                technology "C++ Poco"
-            }
-
             fileMetadataDb = container "File Metadata DB" {
-                description "Хранит метаданные файлов Потребителей"
-                technology "PostgreSQL"
+                description "Хранит метаданные файлов пользователей"
+                technology "MongoDB"
                 tags "Database"
             }
 
-            fileStorage = container "File Storage" {
-                description "Хранит бинарные данные файлов Потребителей"
-                technology "MinIO (S3)"
-                tags "ObjectStorage"
+            notificationService = container "Notification Service" {
+                description "Отправляет сообщения пользователям через Telegram"
+                technology "C++ Poco"
+                -> telegram "Отправляет сообщение пользователю" "HTTPS/Telegram API"
             }
 
-            customer -> gateway "Использует методы REST API системы" "HTTP/REST"
-            admin -> gateway "Использует методы REST API с возможностью административного доступа" "HTTP/REST"
+            kafka = container "Event Bus" {
+                description "Брокер сообщений для асинхронного взаимодействия сервисов"
+                technology "Kafka"
+                tags "EventBus"
+                -> notificationService "Передает событие о необходимости отправить авторизационные данные пользователя" "Kafka"
+            }
 
-            gateway -> identityService "Проксирует запросы регистрации и логина" "HTTP/REST"
-            gateway -> fileManagementService "Проксирует защищённые запросы (после валидации JWT)" "HTTP/REST"
+            identityService = container "Identity Service" {
+                description "Отвечает за аутентификацию, регистрацию, генерацию JWT токенов и управление учетными записями пользователей"
+                technology "C++ Poco"
+                -> identityDb "Создает и ищет пользователей" "PostgreSQL (TCP/IP)"
+                -> kafka "Публикует событие о необходимости отправить авторизационные данные пользователя" "Kafka"
+            }
 
-            identityService -> identityDb "Создает и ищет пользователей" "PostgreSQL (TCP/IP)"
-            identityService -> telegram "Отправляет логин и пароль Потребителю" "HTTPS/Telegram API"
+            fileManagementService = container "File Management Service" {
+                description "Управляет файлами и метаданными пользователей"
+                technology "C++ Poco"
+                -> fileMetadataDb "Читает, ищет и записывает метаданные о файлах и папках" "MongoDB (TCP/IP)"
+            }
 
-            fileManagementService -> fileMetadataDb "Читает, ищет и записывает метаданные о файлах и папках" "PostgreSQL (TCP/IP)"
-            fileManagementService -> fileStorage "Сохраняет и удаляет файлы и папки" "HTTP/S3 API"
+            gateway = container "API Gateway" {
+                description "Проверяет JWT токены, роль пользователей и проксирует запросы к внутренним сервисам"
+                technology "C++ Poco"
+                -> identityService "Проксирует запросы регистрации, логина и поиска пользователя" "HTTP/REST"
+                -> fileManagementService "Проксирует защищённые запросы (после валидации JWT)" "HTTP/REST"
+            }
         }
 
         customer -> maxDisk360 "Регистрируется, аутентифицируется и управляет своими файлами"
-        admin -> maxDisk360 "Регистрирует Потребителя, ищет Потребителей"
+        customer -> maxDisk360.gateway "Использует методы REST API системы" "HTTP/REST"
 
-        maxDisk360 -> telegram "Отправляет логин и пароль Потребителю при регистрации"
+        maxDisk360 -> telegram "Отправляет логин и пароль пользователю при регистрации"
     }
 
     views {
@@ -80,18 +78,17 @@ workspace {
             include *
             autolayout lr
         }
-        dynamic maxDisk360 "UploadingFileByAuthorizedCustomer" {
-            description "Сценарий: загрузка файла авторизованным Потребителем"
+        dynamic maxDisk360 "CreatingNewFileByAuthorizedCustomer" {
+            description "Сценарий: создание нового файла авторизованным Потребителем"
             autolayout lr
 
-            customer -> gateway "POST /upload (с JWT токеном)"
-            gateway -> fileManagementService "Проксирование запроса"
+            customer -> maxDisk360.gateway "POST /createFile (с JWT токеном)"
+            maxDisk360.gateway -> maxDisk360.fileManagementService "Проксирование запроса"
 
-            fileManagementService -> fileStorage "Сохранение бинарных данных файла"
-            fileManagementService -> fileMetadataDb "Сохранение метаданных"
+            maxDisk360.fileManagementService -> maxDisk360.fileMetadataDb "Сохранение метаданных о новом файле"
 
-            fileManagementService -> gateway "HTTP 201 ответ"
-            gateway -> customer "Ответ об успешной загрузке"
+            maxDisk360.fileManagementService -> maxDisk360.gateway "HTTP 201 ответ"
+            maxDisk360.gateway -> customer "Ответ об успешной загрузке"
         }
         styles {
             element "ExternalSystem" {
@@ -99,24 +96,14 @@ workspace {
                 color #000000
             }
 
-            element "Person" {
-                shape Person
-                background #08427b
-                color #ffffff
-            }
-
-            element "Customer" {
-                background #1168bd
-                color #ffffff
-            }
-
             element "Database" {
                 shape Cylinder
             }
 
-            element "ObjectStorage" {
-                shape Cylinder
-                background #f5da81
+            element "EventBus" {
+                background "#f5da81"
+                color "#000000"
+                shape Pipe
             }
         }
         theme default
