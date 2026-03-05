@@ -59,7 +59,7 @@ workspace {
                 description "Проверяет JWT токены, роль пользователей и проксирует запросы к внутренним сервисам"
                 technology "C++ Poco"
                 -> identityService "Проксирует запросы регистрации, логина и поиска пользователя" "HTTP/REST"
-                -> fileManagementService "Проксирует защищённые запросы (после валидации JWT)" "HTTP/REST"
+                -> fileManagementService "Проксирует запросы по работе с файлами и папками" "HTTP/REST"
             }
         }
 
