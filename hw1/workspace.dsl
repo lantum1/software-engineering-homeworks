@@ -29,9 +29,16 @@ workspace {
                 tags "Database"
             }
 
+            notificationDb = container "Notification Database" {
+                description "Хранит параметры сообщений и очередь для их отправки"
+                technology "PostgreSQL"
+                tags "Database"
+            }
+
             notificationService = container "Notification Service" {
                 description "Отправляет сообщения пользователям через Telegram"
                 technology "C++ Poco"
+                -> notificationDb "Читает шаблоны сообщений и сохраняет записи Outbox" "PostgreSQL (TCP/IP)"
                 -> telegram "Отправляет сообщение пользователю" "HTTPS/Telegram API"
             }
 
@@ -79,7 +86,7 @@ workspace {
             autolayout lr
         }
         dynamic maxDisk360 "CreatingNewFileByAuthorizedCustomer" {
-            description "Сценарий: создание нового файла авторизованным Потребителем"
+            description "Сценарий: создание нового файла авторизованным пользователем"
             autolayout lr
 
             customer -> maxDisk360.gateway "POST /createFile (с JWT токеном)"
