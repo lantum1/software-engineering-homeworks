@@ -1,0 +1,48 @@
+services:
+  api-gateway:
+    container_name: api-gateway
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./api-gateway/config:/app/config
+    depends_on:
+      - identity-service
+      - file-management-service
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+
+  identity-service:
+    container_name: identity-service
+    build:
+      context: ./identity-service
+      dockerfile: Dockerfile
+    expose:
+      - "8081"
+    volumes:
+      - ./identity-service/config:/app/config
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+
+  file-management-service:
+    container_name: file-management-service
+    build:
+      context: ./file-management-service
+      dockerfile: Dockerfile
+    expose:
+      - "8082"
+    volumes:
+      - ./file-management-service/config:/app/config
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+    depends_on:
+      - identity-service
+
+networks:
+  maxdisk-network:
+    driver: bridge
