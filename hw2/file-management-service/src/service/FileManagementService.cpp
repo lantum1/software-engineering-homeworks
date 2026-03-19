@@ -75,7 +75,7 @@ namespace maxdisk::filemanagement::service
         auto folderOpt = repository_->findFolderById(folderId);
         if (!folderOpt || folderOpt->userId != userId)
         {
-            throw exception::FolderNotFoundException();
+            throw exception::FileNotFoundException();
         }
 
         auto fileOpt = repository_->findFileByFolderIdAndName(folderId, fileName);
