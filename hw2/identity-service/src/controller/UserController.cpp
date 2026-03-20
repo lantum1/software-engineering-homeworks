@@ -83,8 +83,7 @@ namespace maxdisk::identity::controller
             auto regResp = identityService_->registerUser(
                 regReq.phone, regReq.email, regReq.firstName, regReq.lastName, tempPassword);
 
-            response.setStatus(HTTPResponse::HTTP_CREATED);
-            util::JsonHelper::setJsonResponse(response, regResp.toJson());
+            util::JsonHelper::setJsonResponse(response, regResp.toJson(), HTTPResponse::HTTP_CREATED);
         }
         catch (const exception::UserAlreadyExistsException &)
         {

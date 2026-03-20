@@ -130,8 +130,7 @@ namespace maxdisk::filemanagement::controller
             auto req = dto::CreateFolderRequest::fromJson(oss.str());
             auto resp = fileService_->createFolder(userId, req.name);
 
-            response.setStatus(HTTPResponse::HTTP_CREATED);
-            util::JsonHelper::setJsonResponse(response, resp.toJson());
+            util::JsonHelper::setJsonResponse(response, resp.toJson(), HTTPResponse::HTTP_CREATED);
         }
         catch (const exception::FolderAlreadyExistsException &)
         {
@@ -227,8 +226,7 @@ namespace maxdisk::filemanagement::controller
                 userId, folderId, filePart.fileName, filePart.contentType, filePart.content
             );
 
-            response.setStatus(HTTPResponse::HTTP_CREATED);
-            util::JsonHelper::setJsonResponse(response, resp.toJson());
+            util::JsonHelper::setJsonResponse(response, resp.toJson(), HTTPResponse::HTTP_CREATED);
         }
         catch (const exception::FolderNotFoundException &)
         {
