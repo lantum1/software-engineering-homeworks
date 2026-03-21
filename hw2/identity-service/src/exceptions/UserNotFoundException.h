@@ -10,7 +10,7 @@ namespace maxdisk::identity::exception
     class UserNotFoundException : public runtime_error
     {
     public:
-        explicit UserNotFoundException(const string &message = "User not found")
+        explicit UserNotFoundException(const string &message = "Пользователь не найден")
             : runtime_error(message) {}
     };
 
