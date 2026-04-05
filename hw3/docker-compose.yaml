@@ -56,7 +56,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./identity-service/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./identity-service/db/init/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgres_data:/var/lib/postgresql/data
     networks:
       - maxdisk-network

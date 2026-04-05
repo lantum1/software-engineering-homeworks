@@ -26,3 +26,7 @@ CREATE TABLE identity.users_profile (
     CONSTRAINT check_phone_format CHECK (phone ~ '^\+[1-9]\d{7,14}$'),
     CONSTRAINT check_email_format CHECK (email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_users_profile_first_name_trgm ON identity.users_profile USING gin (first_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_users_profile_last_name_trgm ON identity.users_profile USING gin (last_name gin_trgm_ops);

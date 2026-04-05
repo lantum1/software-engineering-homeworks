@@ -1,3 +1,36 @@
+CREATE SCHEMA IF NOT EXISTS identity;
+
+CREATE TYPE identity.user_role AS ENUM ('user', 'admin');
+
+CREATE TABLE identity.users_auth (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    login VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT check_password_hash_length CHECK (char_length(password_hash) >= 60)
+);
+
+CREATE TABLE identity.users_profile (
+    user_id UUID PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20) UNIQUE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    role identity.user_role NOT NULL DEFAULT 'user',
+    created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_users_profile_auth FOREIGN KEY (user_id) REFERENCES identity.users_auth(id) ON DELETE CASCADE,
+    CONSTRAINT check_phone_format CHECK (phone ~ '^\+[1-9]\d{7,14}$'),
+    CONSTRAINT check_email_format CHECK (email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+);
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_users_profile_first_name_trgm ON identity.users_profile USING gin (first_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_users_profile_last_name_trgm ON identity.users_profile USING gin (last_name gin_trgm_ops);
+
 INSERT INTO identity.users_auth (id, login, password_hash, is_active, last_login_at) VALUES
 ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'ivan.petrov', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.G.2f3f3f3f3f3f', TRUE, CURRENT_TIMESTAMP),
 ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 'maria.sokolova', '$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', TRUE, CURRENT_TIMESTAMP),
