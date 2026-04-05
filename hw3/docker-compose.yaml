@@ -1,0 +1,76 @@
+services:
+  api-gateway:
+    container_name: api-gateway
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./api-gateway/config:/app/config
+    depends_on:
+      - identity-service
+      - file-management-service
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+
+  identity-service:
+    container_name: identity-service
+    build:
+      context: ./identity-service
+      dockerfile: Dockerfile
+    expose:
+      - "8081"
+    volumes:
+      - ./identity-service/config:/app/config
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+    depends_on:
+      identity-service-db:
+        condition: service_healthy
+
+  file-management-service:
+    container_name: file-management-service
+    build:
+      context: ./file-management-service
+      dockerfile: Dockerfile
+    expose:
+      - "8082"
+    volumes:
+      - ./file-management-service/config:/app/config
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+    depends_on:
+      - identity-service
+
+  identity-service-db:
+    container_name: identity-service-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: identity_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./identity-service/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d identity_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  maxdisk-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
