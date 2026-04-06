@@ -67,6 +67,28 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+  
+  notification-service-db:
+    container_name: notification-service-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "6432:5432"
+    volumes:
+      - ./notification-service/db/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - notification_service_postgres_data:/var/lib/postgresql/data
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 networks:
   maxdisk-network:
@@ -74,3 +96,4 @@ networks:
 
 volumes:
   postgres_data:
+  notification_service_postgres_data:
