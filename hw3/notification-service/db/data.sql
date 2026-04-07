@@ -26,7 +26,32 @@ INSERT INTO notification.templates (id, key, text, created, updated) VALUES
  'file_shared', 
  'Пользователь {{sharer_name}} поделился файлом: {{file_name}}', 
  NOW() - INTERVAL '10 days', 
- NOW() - INTERVAL '1 day');
+ NOW() - INTERVAL '1 day'),
+('66666666-6666-6666-6666-666666666666', 
+ 'two_factor_code', 
+ 'Код двухфакторной аутентификации: {{code}}\nНе сообщайте код никому.\nДействует 5 минут.', 
+ NOW() - INTERVAL '8 days', 
+ NULL),
+('77777777-7777-7777-7777-777777777777', 
+ 'storage_critical', 
+ 'Критично! Хранилище заполнено на {{used_percent}}%.\nЗагрузка файлов приостановлена.\nОсвободите {{required_gb}} ГБ.', 
+ NOW() - INTERVAL '7 days', 
+ NOW() - INTERVAL '1 day'),
+('88888888-8888-8888-8888-888888888888', 
+ 'file_upload_complete', 
+ 'Загрузка файла завершена.\nФайл: {{file_name}}\nРазмер: {{file_size_mb}} МБ', 
+ NOW() - INTERVAL '6 days', 
+ NULL),
+('99999999-9999-9999-9999-999999999999', 
+ 'security_alert', 
+ 'Новый вход в аккаунт.\nУстройство: {{device_name}}\nIP: {{ip_address}}\nВремя: {{login_time}}', 
+ NOW() - INTERVAL '5 days', 
+ NOW() - INTERVAL '2 days'),
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
+ 'subscription_expiring', 
+ 'Подписка истекает через {{days_left}} дн.\nТариф: {{plan_name}}\nПродлите доступ: {{renewal_link}}', 
+ NOW() - INTERVAL '4 days', 
+ NULL);
 
 -- ============================================
 -- Вставка тестовых данных в таблицу notification.notifications - INBOX/OUTBOX для отправки уведомлений

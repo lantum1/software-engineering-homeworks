@@ -45,7 +45,7 @@ INSERT INTO identity.users_auth (id, login, password_hash, is_active, last_login
 ('e1f2a3b4-c5d6-7890-5678-901234567890', 'admin', '$2b$12$T9U0V1W2X3Y4Z5A6B7C8D9E0F1G2H3I4J5K6L7M8N9O0P1Q2R3S4T', TRUE, CURRENT_TIMESTAMP);
 
 INSERT INTO identity.users_profile (user_id, email, phone, first_name, last_name, role) VALUES
-('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'ivan.petrov@mail.ru', '+79991234567', 'Ivan', 'Petrov', 'user'),
+('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'ivan.petrov@mail.ru', '+79991234569', 'Ivan', 'Petrov', 'user'),
 ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 'maria.sokolova@yandex.ru', '+79992345678', 'Maria', 'Sokolova', 'user'),
 ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'alexey.ivanov@gmail.com', '+79993456789', 'Alexey', 'Ivanov', 'user'),
 ('d4e5f6a7-b8c9-0123-def1-234567890123', 'elena.kozlova@mail.ru', '+79994567890', 'Elena', 'Kozlova', 'user'),
