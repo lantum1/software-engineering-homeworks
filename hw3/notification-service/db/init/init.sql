@@ -43,8 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_status_notification_id_created_only
 ON notification.notifications_status(notification_id, created DESC)
 WHERE status = 'CREATED';
 
-CREATE INDEX IF NOT EXISTS idx_templates_id_with_text ON notification.templates(id) INCLUDE (text);
-
 CREATE INDEX IF NOT EXISTS idx_notifications_template_id ON notification.notifications(template_id);
 
 -- ============================================

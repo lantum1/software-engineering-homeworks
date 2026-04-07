@@ -224,7 +224,7 @@ CREATE INDEX IF NOT EXISTS idx_templates_id_with_text ON notification.templates(
 
 Третий индекс должен ускорить фильтрацию по CREATED статусам. Кроме этого, это частичный индекс, который содержит только записи со статусом CREATED.
 
-Четвертый индекс на данный момент смысла мало имеет, потому что в templates таблице мало записей. Но, если и когда таблица разрастется, то данный индекс будет иметь смысл - он покрывающий и убирает необходимость обращаться к таблице templates при выполнении запроса.
+Четвертый индекс на данный момент может не иметь смысла, потому что в templates таблице мало записей. Но, теоретически, если и когда таблица разрастется, то данный индекс будет иметь смысл - он покрывающий и убирает необходимость обращаться к таблице templates при выполнении запроса.
 
 Посмотрим на план 7 запроса после добавления четырех индексов выше:
 ```
@@ -247,7 +247,8 @@ Limit  (cost=18.31..18.32 rows=1 width=180)
                                     ->  Index Only Scan using idx_notifications_status_notification_id_created on notifications_status ns2  (cost=0.29..4.30 rows=1 width=8)
                                           Index Cond: ((notification_id = n.id) AND (created IS NOT NULL))
 ```
-Стоимость запроса упала в тысячи раз. Используются три из четырех созданных индексов - кроме последнего индекса idx_templates_id_with_text. 
+Стоимость запроса упала в тысячи раз. Используются три из четырех созданных индексов - кроме последнего индекса idx_templates_id_with_text. Исходя из семантики таблицы templates, вряд ли когда-либо наберется много записей (1000+) в таблице с шаблонами уведомлений - вряд ли будет 1000+ различных шаблонов уведомлений. Поэтому, на данный момент данный индекс является излишним - не будем его добавлять в схему.\
+А пока в таблице мало данных, то оптимизатору в любом случае будет выгоднее использовать Seq Scan вместо индекса.
 
 Кроме этого, по заданию требуется создать индексы для FK полей - не смотря на то, что для моих запросов он не требуется.
 
@@ -268,8 +269,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_status_notification_id_created ON n
 CREATE INDEX IF NOT EXISTS idx_notifications_status_notification_id_created_only 
 ON notification.notifications_status(notification_id, created DESC)
 WHERE status = 'CREATED';
-
-CREATE INDEX IF NOT EXISTS idx_templates_id_with_text ON notification.templates(id) INCLUDE (text);
 
 CREATE INDEX IF NOT EXISTS idx_notifications_template_id ON notification.notifications(template_id);
 ```
@@ -393,4 +392,4 @@ Limit  (cost=18.31..18.32 rows=1 width=180)
 
 ## Рассуждения о результатах оптимизаций
 
-Никакая стоимость запросов, кроме запроса 7, не изменилась после добавления индексов. Стоимость 7 запроса упала значительно благодаря 3 индексам - idx_notifications_expires_created, idx_notifications_status_notification_id_created_only и idx_notifications_status_notification_id_created. Кроме этого, четвертый индекс idx_templates_id_with_text может тоже повлиять положительно на результат, убрав Seq Scan on templates t тогда, когда в templates будет много строк.
+Никакая стоимость запросов, кроме запроса 7, не изменилась после добавления индексов. Стоимость 7 запроса упала значительно благодаря 3 индексам - idx_notifications_expires_created, idx_notifications_status_notification_id_created_only и idx_notifications_status_notification_id_created. Покрывающий индекс на получение поля text из таблицы templates (idx_templates_id_with_text) в 7 запросе пока что решил не добавлять, потому что в дальней перспективе семантики таблицы данный индекс будет излишним.

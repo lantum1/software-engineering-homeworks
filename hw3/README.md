@@ -212,8 +212,6 @@ ENUM - notification_status
 Назначение: Поиск по полю id
 2. templates_key_key (B-tree, UNIQUE)\
 Назначение: Поиск шаблона по уникальному имени
-3. idx_templates_id_with_text (B-tree, INCLUDE)\
-Назначение: Покрывающий индекс для быстрого доступа к тексту шаблона без обращения к таблице
 
 **Индексы таблицы notifications:**
 1. notifications_pkey (B-tree, PRIMARY KEY)\
@@ -222,7 +220,7 @@ ENUM - notification_status
 Назначение: Проверка идемпотентности сообщений из Kafka
 3. idx_notifications_expires_created (B-tree, составной)\
 Назначение: Индекс для запроса для шедулера для получения активных уведомлений с последним статусом CREATED - фильтр по expires и сортировка по created DESC
-1. idx_notifications_template_id (B-tree)\
+4. idx_notifications_template_id (B-tree)\
 Назначение: Быстрый JOIN с таблицей templates
 
 **Индексы таблицы notifications_status:**
