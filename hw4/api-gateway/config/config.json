@@ -1,0 +1,50 @@
+{
+  "base_path": "/max-disk",
+  "jwt_secret": "79803bfc-8367-417b-ae54-e16cb570d323",
+  "services": {
+    "identity": {
+      "host": "identity-service",
+      "port": 8081
+    },
+    "file": {
+      "host": "file-management-service",
+      "port": 8082
+    }
+  },
+  "routing": [
+    {
+      "prefix": "/v1/users/auth",
+      "service": "identity"
+    },
+    {
+      "prefix": "/v1/users",
+      "service": "identity"
+    },
+    {
+      "prefix": "/v1/folders",
+      "service": "file"
+    }
+  ],
+  "access_control": [
+    {
+      "path": "/v1/users/auth",
+      "auth": false
+    },
+    {
+      "path": "/v1/users",
+      "auth": true,
+      "roles": [
+        "user",
+        "admin"
+      ]
+    },
+    {
+      "path": "/v1/folders",
+      "auth": true,
+      "roles": [
+        "user",
+        "admin"
+      ]
+    }
+  ]
+}

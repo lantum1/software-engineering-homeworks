@@ -1,0 +1,288 @@
+openapi: 3.0.3
+info:
+  title: File Management Service API
+  description: REST API для File Management сервиса хранения файлов MAX Disk 360
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082/
+
+tags:
+  - name: Folders
+    description: Управление папками пользователя
+  - name: Files
+    description: Управление файлами внутри папок
+
+paths:
+  /v1/folders:
+    post:
+      tags:
+        - Folders
+      summary: Создание новой папки
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFolderRequest'
+      responses:
+        '201':
+          description: Папка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateFolderResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+        '409':
+          description: Папка с таким именем уже существует
+    get:
+      tags:
+        - Folders
+      summary: Получение списка всех папок
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список папок
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetFoldersResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+  /v1/folders/{folderId}:
+    delete:
+      tags:
+        - Folders
+      summary: Удаление папки
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          description: Уникальный идентификатор папки
+          schema:
+            type: string
+            format: uuid
+            example: d77d636b-fab5-4aa2-94ea-d8ea52e3d83b
+      responses:
+        '204':
+          description: Папка удалена
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+        '404':
+          description: Папка не найдена
+
+  /v1/folders/{folderId}/files:
+    post:
+      tags:
+        - Files
+      summary: Создание файла в папке
+      description: Загружает файл с бинарным содержимым в указанную папку
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          description: Уникальный идентификатор папки
+          schema:
+            type: string
+            format: uuid
+            example: d77d636b-fab5-4aa2-94ea-d8ea52e3d83b
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Бинарное содержимое файла для загрузки
+      responses:
+        '201':
+          description: Файл создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateFileResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+        '404':
+          description: Папка не найдена
+        '409':
+          description: Файл с таким именем уже существует в папке
+    get:
+      tags:
+        - Files
+      summary: Получение файла по имени
+      description: Возвращает бинарное содержимое файла для скачивания
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          description: Уникальный идентификатор папки
+          schema:
+            type: string
+            format: uuid
+            example: d77d636b-fab5-4aa2-94ea-d8ea52e3d83b
+        - name: name
+          in: query
+          required: true
+          description: Имя файла для получения
+          schema:
+            type: string
+          example: document.pdf
+      responses:
+        '200':
+          description: Файл получен успешно
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Имя файла
+              schema:
+                type: string
+                example: 'attachment; filename="document.pdf"'
+            Content-Length:
+              description: Размер файла в байтах
+              schema:
+                type: integer
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+        '404':
+          description: Файл не найден
+  /v1/folders/{folderId}/files/{fileId}:
+    delete:
+      tags:
+        - Files
+      summary: Удаление файла
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          description: Уникальный идентификатор папки
+          schema:
+            type: string
+            format: uuid
+            example: d77d636b-fab5-4aa2-94ea-d8ea52e3d83b
+        - name: fileId
+          in: path
+          required: true
+          description: Уникальный идентификатор файла
+          schema:
+            type: string
+            format: uuid
+            example: d77d636b-fab5-4aa2-94ea-d8ea52e3d83b
+      responses:
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+        '204':
+          description: Файл удалён
+        '404':
+          description: Файл не найден
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Folder:
+      type: object
+      description: Папка пользователя для хранения файлов
+      required:
+        - id
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор папки
+          example: 5e4b7d2c-1f3a-4b9d-9a23-bb8d34a6c123
+        name:
+          type: string
+          description: Название папки
+          example: Work Documents
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания папки
+          example: "2026-03-09T12:30:00Z"
+
+    GetFoldersResponse:
+      type: object
+      description: Ответ со списком папок пользователя
+      required:
+        - folders
+      properties:
+        folders:
+          type: array
+          description: Список папок пользователя
+          items:
+            $ref: '#/components/schemas/Folder'
+
+    CreateFolderRequest:
+      type: object
+      description: Запрос на создание новой папки
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Название создаваемой папки
+          example: Travel Photos
+
+    CreateFolderResponse:
+      type: object
+      description: Ответ после успешного создания папки
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор созданной папки
+          example: a4b9d7e1-8c2f-45a7-9e1a-4f0a2b3c5d67
+
+    CreateFileResponse:
+      type: object
+      description: Ответ после успешного создания файла
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор созданного файла
+          example: 3a7f8d2b-9b1e-4a5f-a8b7-5d6e7f8c9123
