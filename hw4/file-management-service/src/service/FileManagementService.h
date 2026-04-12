@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <Poco/Timestamp.h>
+#include <mongocxx/pool.hpp>
 #include "../repository/IFileManagementRepository.h"
 #include "../dto/Folder.h"
 #include "../dto/FileMetadata.h"
@@ -20,9 +22,19 @@ namespace maxdisk::filemanagement::service
     private:
         unique_ptr<repository::IFileManagementRepository> repository_;
 
+        mongocxx::pool &pool_;
+        string dbName_;
+
     public:
-        explicit FileManagementService(unique_ptr<repository::IFileManagementRepository> repository)
-            : repository_(move(repository)) {}
+        explicit FileManagementService(
+            unique_ptr<repository::IFileManagementRepository> repository,
+            mongocxx::pool &pool,
+            string dbName)
+            : repository_(std::move(repository)),
+              pool_(pool),
+              dbName_(std::move(dbName))
+        {
+        }
 
         dto::CreateFolderResponse createFolder(const string &userId, const string &name);
 
@@ -40,8 +52,6 @@ namespace maxdisk::filemanagement::service
         dto::FileMetadata getFile(const string &userId, const string &folderId, const string &fileName);
 
         bool deleteFile(const string &userId, const string &folderId, const string &fileId);
-
-        const repository::IFileManagementRepository &getRepository() const { return *repository_; }
     };
 
 }

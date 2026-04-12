@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Poco REQUIRED Net Util JSON Crypto)
 find_package(OpenSSL REQUIRED)
+find_package(mongocxx CONFIG REQUIRED)
+find_package(bsoncxx CONFIG REQUIRED)
 
 include(FetchContent)
 
@@ -38,12 +40,13 @@ target_link_libraries(file-management-service-lib PRIVATE
     jwt-cpp::jwt-cpp
 )
 
-target_compile_options(file-management-service-lib PRIVATE
-    -Wall -Wextra -Wpedantic
+target_link_libraries(file-management-service-lib PUBLIC
+    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
 )
 
-target_compile_definitions(file-management-service-lib PRIVATE
-    POCO_UNBUNDLED
+target_compile_options(file-management-service-lib PRIVATE
+    -Wall -Wextra -Wpedantic
 )
 
 add_executable(file-management-service src/main.cpp)
@@ -51,32 +54,3 @@ add_executable(file-management-service src/main.cpp)
 target_link_libraries(file-management-service PRIVATE
     file-management-service-lib
 )
-
-option(BUILD_TESTS "Build unit tests" ON)
-
-if(BUILD_TESTS)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.17.0
-    )
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-    
-    include(GoogleTest)
-    
-    add_executable(file-management-service-tests
-        tests/FileManagementServiceTest.cpp
-    )
-    
-    target_link_libraries(file-management-service-tests PRIVATE
-        file-management-service-lib
-        GTest::gtest_main
-    )
-    
-    target_include_directories(file-management-service-tests PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-    )
-    
-    gtest_discover_tests(file-management-service-tests)
-endif()

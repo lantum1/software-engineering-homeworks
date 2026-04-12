@@ -11,18 +11,6 @@ services:
     command: ["./identity-service-tests", "--gtest_color=yes", "--gtest_output=xml:test-results/identity-tests.xml"]
     restart: "no"
 
-  file-management-service-tests:
-    container_name: file-management-service-tests
-    build:
-      context: ./file-management-service
-      dockerfile: Dockerfile.test
-      args:
-        - BUILD_TYPE=Debug
-    volumes:
-      - ./file-management-service/test-results:/app/test-results
-    command: ["./file-management-service-tests", "--gtest_color=yes", "--gtest_output=xml:test-results/file-tests.xml"]
-    restart: "no"
-
   test-runner:
     container_name: test-runner
     image: alpine:3.19

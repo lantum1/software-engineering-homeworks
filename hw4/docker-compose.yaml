@@ -44,7 +44,8 @@ services:
       - maxdisk-network
     restart: unless-stopped
     depends_on:
-      - identity-service
+      file-management-db:
+        condition: service_healthy
 
   identity-service-db:
     container_name: identity-service-db
@@ -89,6 +90,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+  
+  file-management-db:
+    container_name: file-management-db
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: file-management
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./file-management-service/db/init/init.js:/docker-entrypoint-initdb.d/init.js
+      - mongo_data:/data/db
+    networks:
+      - maxdisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 networks:
   maxdisk-network:
@@ -97,3 +118,4 @@ networks:
 volumes:
   postgres_data:
   notification_service_postgres_data:
+  mongo_data:

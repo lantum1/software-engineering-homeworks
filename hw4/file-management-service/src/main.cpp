@@ -1,5 +1,8 @@
 #include <iostream>
 #include <memory>
+#include <string>
+#include <vector>
+
 #include <Poco/Net/HTTPServer.h>
 #include <Poco/Net/ServerSocket.h>
 #include <Poco/Net/HTTPRequestHandlerFactory.h>
@@ -7,11 +10,15 @@
 #include <Poco/Util/ServerApplication.h>
 #include <Poco/Util/Option.h>
 #include <Poco/Util/OptionSet.h>
+#include <Poco/Util/OptionCallback.h>
 #include <Poco/AutoPtr.h>
 
+#include <mongocxx/instance.hpp>
+#include <mongocxx/pool.hpp>
+#include <mongocxx/uri.hpp>
 #include "controller/FileManagementController.h"
 #include "service/FileManagementService.h"
-#include "repository/InMemoryFileManagementRepository.h"
+#include "repository/MongoFileManagementRepository.h"
 
 using namespace std;
 using namespace maxdisk::filemanagement;
@@ -26,7 +33,7 @@ private:
 public:
     explicit FileManagementHandlerFactory(
         shared_ptr<service::FileManagementService> fileService)
-        : fileService_(move(fileService)) {}
+        : fileService_(std::move(fileService)) {}
 
     HTTPRequestHandler *createRequestHandler(const HTTPServerRequest &request) override
     {
@@ -44,6 +51,8 @@ class FileManagementApp : public ServerApplication
 private:
     int _port = 8082;
     int _threads = 4;
+    string _mongoUri = "mongodb://file-management-db:27017";
+    string _mongoDb = "file-management";
 
 protected:
     void defineOptions(OptionSet &options) override
@@ -51,36 +60,43 @@ protected:
         ServerApplication::defineOptions(options);
 
         options.addOption(Option("port", "p", "Port to listen on")
-                              .required(false)
-                              .repeatable(false)
                               .argument("port")
-                              .callback(OptionCallback<FileManagementApp>(
-                                  this, &FileManagementApp::handlePortOption)));
+                              .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handlePortOption)));
 
         options.addOption(Option("threads", "t", "Number of server threads")
-                              .required(false)
-                              .repeatable(false)
                               .argument("threads")
-                              .callback(OptionCallback<FileManagementApp>(
-                                  this, &FileManagementApp::handleThreadsOption)));
+                              .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handleThreadsOption)));
+
+        options.addOption(Option("mongo-uri", "u", "MongoDB connection URI")
+                              .argument("uri")
+                              .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handleMongoUriOption)));
+
+        options.addOption(Option("mongo-db", "b", "MongoDB database name")
+                              .argument("name")
+                              .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handleMongoDbOption)));
     }
 
-    void handlePortOption(const string &, const string &value)
-    {
-        _port = stoi(value);
-    }
-
-    void handleThreadsOption(const string &, const string &value)
-    {
-        _threads = stoi(value);
-    }
+    void handlePortOption(const string &, const string &value) { _port = stoi(value); }
+    void handleThreadsOption(const string &, const string &value) { _threads = stoi(value); }
+    void handleMongoUriOption(const string &, const string &value) { _mongoUri = value; }
+    void handleMongoDbOption(const string &, const string &value) { _mongoDb = value; }
 
     int main(const vector<string> &) override
     {
         try
         {
-            auto repository = make_unique<repository::InMemoryFileManagementRepository>();
-            auto fileService = make_shared<service::FileManagementService>(move(repository));
+            mongocxx::instance instance{};
+
+            mongocxx::pool pool{mongocxx::uri{_mongoUri}};
+
+            auto repository = make_unique<repository::MongoFileManagementRepository>(
+                _mongoUri,
+                _mongoDb);
+
+            auto service = make_shared<service::FileManagementService>(
+                std::move(repository),
+                pool,
+                _mongoDb);
 
             ServerSocket socket(_port);
             Poco::AutoPtr<HTTPServerParams> params = new HTTPServerParams();
@@ -89,10 +105,9 @@ protected:
             params->setThreadIdleTime(10000);
 
             HTTPServer server(
-                new FileManagementHandlerFactory(fileService),
-                socket, 
-                params
-            );
+                new FileManagementHandlerFactory(service),
+                socket,
+                params);
 
             server.start();
             waitForTerminationRequest();

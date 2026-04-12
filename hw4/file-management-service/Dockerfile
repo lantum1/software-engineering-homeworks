@@ -6,28 +6,43 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     git \
-    libpoco-dev \
+    curl \
+    zip \
+    unzip \
+    tar \
+    pkg-config \
     libssl-dev \
+    libpoco-dev \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone https://github.com/microsoft/vcpkg.git
+WORKDIR /opt/vcpkg
+RUN ./bootstrap-vcpkg.sh
+
+RUN ./vcpkg install mongo-cxx-driver
 
 WORKDIR /app
 COPY . .
 
 RUN mkdir -p build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build . --config Release -j$(nproc)
+    cmake .. \
+      -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
+      -DVCPKG_TARGET_TRIPLET=arm64-linux \
+      -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build . -j$(nproc)
 
 
 FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     libpoco-dev \
     libssl3 \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    libmongoc-1.0-0 \
+    libbson-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

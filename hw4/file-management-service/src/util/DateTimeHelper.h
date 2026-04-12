@@ -18,6 +18,12 @@ namespace maxdisk::filemanagement::util
             Poco::DateTime dt(now);
             return Poco::DateTimeFormatter::format(dt, Poco::DateTimeFormat::ISO8601_FORMAT);
         }
+
+        static std::string timestampToIso8601(const Poco::Timestamp& ts)
+        {
+            Poco::DateTime dt(ts);
+            return Poco::DateTimeFormatter::format(dt, Poco::DateTimeFormat::ISO8601_FORMAT, 0);
+        }
     };
 
 }
