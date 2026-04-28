@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: Identity Service API
+  description: REST API для Identity сервиса MAX Disk 360 системы
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081/
+
+tags:
+  - name: Users
+    description: Операции, связанные с пользователями
+
+paths:
+  /v1/users/auth/login:
+    post:
+      tags:
+        - Users
+      summary: Аутентификация пользователя
+      description: Проверяет логин и пароль пользователя и возвращает JWT токен
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверный логин или пароль
+  /v1/users/auth/register:
+    post:
+      tags:
+        - Users
+      summary: Создание нового пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRegistrationResponse'
+        '409':
+          description: Пользователь уже существует
+  /v1/users/search:
+    get:
+      tags:
+        - Users
+      summary: Поиск пользователей по маске имени и фамилии
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: firstName
+          in: query
+          required: true
+          description: Маска имени пользователя (* означает любые символы, поддерживается в начале или в конце)
+          schema:
+            type: string
+        - name: lastName
+          in: query
+          required: true
+          description: Маска фамилии пользователя (* означает любые символы, поддерживается в начале или в конце)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUsersResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+  /v1/users/search/login:
+    get:
+      tags:
+        - Users
+      summary: Поиск пользователя по логину
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: login
+          in: query
+          required: true
+          description: Логин пользователя
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Пользователь найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не авторизован
+        '404':
+          description: Пользователь не найден
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      description: Запрос на аутентификацию пользователя
+      required:
+        - login
+        - password
+      properties:
+        login:
+          type: string
+          description: Логин пользователя
+          example: ivan.petrov
+        password:
+          type: string
+          description: Пароль пользователя
+          example: P@ssw0rd!23
+
+    LoginResponse:
+      type: object
+      description: Ответ с JWT токеном после успешной аутентификации
+      required:
+        - userId
+        - role
+        - email
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор пользователя
+          example: 2c1c9f3a-6e2a-4d7b-8d27-9f0f4b3f9d11
+        role:
+          type: string
+          description: Роль пользователя
+          example: user
+        email:
+          type: string
+          description: Email пользователя
+          example: ivan.petrov@mail.ru
+          pattern: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+
+    User:
+      type: object
+      description: Информация о пользователе
+      required:
+        - id
+        - login
+        - firstName
+        - lastName
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор пользователя
+          example: 2c1c9f3a-6e2a-4d7b-8d27-9f0f4b3f9d11
+        login:
+          type: string
+          description: Уникальный логин пользователя
+          example: ivan.petrov
+        firstName:
+          type: string
+          description: Имя пользователя
+          example: Ivan
+        lastName:
+          type: string
+          description: Фамилия пользователя
+          example: Petrov
+
+    GetUsersResponse:
+      type: object
+      description: Ответ со списком найденных пользователей
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          description: Список пользователей, соответствующих параметрам поиска
+          items:
+            $ref: '#/components/schemas/User'
+
+    UserRegistrationRequest:
+      type: object
+      description: Данные для регистрации нового пользователя
+      required:
+        - phone
+        - email
+        - firstName
+        - lastName
+      properties:
+        phone:
+          type: string
+          description: Номер телефона пользователя в формате E.164
+          example: "+79991234567"
+          pattern: '^\+[1-9]\d{7,14}$'
+        email:
+          type: string
+          description: Email пользователя
+          example: ivan.petrov@mail.ru
+          pattern: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+        firstName:
+          type: string
+          description: Имя пользователя
+          example: Ivan
+        lastName:
+          type: string
+          description: Фамилия пользователя
+          example: Petrov
+
+    UserRegistrationResponse:
+      type: object
+      description: Ответ после успешной регистрации пользователя
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор созданного пользователя
+          example: 2c1c9f3a-6e2a-4d7b-8d27-9f0f4b3f9d11

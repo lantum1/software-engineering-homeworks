@@ -1,0 +1,373 @@
+{
+  "info": {
+    "_postman_id": "777f3041-1936-4107-bb56-0874a216d12c",
+    "name": "MAX Disk 360 - Интеграционные тесты",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25065214"
+  },
+  "item": [
+    {
+      "name": "Аутентификация и регистрация",
+      "item": [
+        {
+          "name": "Регистрация нового пользователя",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Присутствует userId', () => pm.expect(json.id).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+79991234567\",\n  \"email\": \"integration@test.com\",\n  \"firstName\": \"Integration\",\n  \"lastName\": \"Test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Авторизация с неверным паролем (негативный тест)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"integration@test.com\",\n  \"password\": \"WrongPassword!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Проверка авторизации",
+      "item": [
+        {
+          "name": "Доступ к защищённому методу без токена (негативный тест)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Доступ с невалидным токеном (негативный тест)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid.token.here"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Доступ с валидным токеном",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Ответ в формате JSON', () => pm.response.to.be.json);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{validAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Доступ с токеном без прав на роль (ошибка 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 403 - доступ запрещён', () => pm.response.to.have.status(403));",
+                  "pm.test('Корректное сообщение об ошибке', () => {",
+                  "  const text = pm.response.text();",
+                  "  pm.expect(text.toLowerCase()).to.include('доступ запрещен');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessTokenNoAuthorizationForRole}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Работа с папками и файлами",
+      "item": [
+        {
+          "name": "Создание папки (с валидным токеном)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('testFolderId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{validAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Тестовая папка\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Поиск пользователей",
+      "item": [
+        {
+          "name": "Поиск пользователей по маске имени (с валидным токеном)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Присутствует массив users', () => pm.expect(json.users).to.be.an('array'));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{validAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/search?firstName=*Integration*&lastName=*Test*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "firstName",
+                  "value": "*Integration*"
+                },
+                {
+                  "key": "lastName",
+                  "value": "*Test*"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/max-disk",
+      "type": "string"
+    },
+    {
+      "key": "validAccessToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWI1YmRhZi03MWZjLTQwN2ItOGVmNC1iNDZmZmEzMTQ0ODQiLCJyb2xlIjoidXNlciIsImV4cCI6MTgwNTQ5NjMwMiwiaXNzIjoibWF4LWRpc2stMzYwIn0.M0EDI0NU-clC_02KtYLQaXjdU9dsSRtIHcxl9pu1c7Q",
+      "type": "string"
+    },
+    {
+      "key": "accessTokenNoAuthorizationForRole",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZWI1YmRhZi03MWZjLTQwN2ItOGVmNC1iNDZmZmEzMTQ0ODQiLCJyb2xlIjoiZ3Vlc3QiLCJleHAiOjE4MDU0OTY0MzcsImlzcyI6Im1heC1kaXNrLTM2MCJ9.W-2qi4ALK4j5N-CPphHTgVdIzn3KD0UYqjjOvFZvg6k",
+      "type": "string"
+    },
+    {
+      "key": "testUserId",
+      "value": "deb5bdaf-71fc-407b-8ef4-b46ffa314484",
+      "type": "string"
+    },
+    {
+      "key": "testFolderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testFileId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

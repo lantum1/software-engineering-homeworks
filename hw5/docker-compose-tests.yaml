@@ -1,0 +1,19 @@
+services:
+  identity-service-tests:
+    container_name: identity-service-tests
+    build:
+      context: ./identity-service
+      dockerfile: Dockerfile.test
+      args:
+        - BUILD_TYPE=Debug
+    volumes:
+      - ./identity-service/test-results:/app/test-results
+    command: ["./identity-service-tests", "--gtest_color=yes", "--gtest_output=xml:test-results/identity-tests.xml"]
+    restart: "no"
+
+  test-runner:
+    container_name: test-runner
+    image: alpine:3.19
+    depends_on:
+      - identity-service-tests
+      - file-management-service-tests
