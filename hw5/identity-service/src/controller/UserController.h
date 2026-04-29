@@ -6,6 +6,7 @@
 #include <Poco/Net/HTTPServerResponse.h>
 #include <Poco/URI.h>
 #include "../service/IdentityService.h"
+#include "../service/ratelimit/RateLimiter.h"
 
 using namespace std;
 using namespace Poco::Net;
@@ -17,6 +18,7 @@ namespace maxdisk::identity::controller
     {
     private:
         shared_ptr<service::IdentityService> identityService_;
+        shared_ptr<service::ratelimit::RateLimiter> rateLimiter_;
 
         static optional<string> getQueryParam(const Poco::URI::QueryParameters &params, const string &name);
 
@@ -29,9 +31,16 @@ namespace maxdisk::identity::controller
         void handleSearchByLogin(HTTPServerRequest &request, HTTPServerResponse &response);
 
         bool isAuthorized(const HTTPServerRequest &request);
+
+        void setRateLimitHeaders(HTTPServerResponse &response, const service::ratelimit::RateLimitResult &result);
+
+        void sendRateLimitResponse(HTTPServerResponse &response, const service::ratelimit::RateLimitResult &result);
+
     public:
-        explicit UserController(shared_ptr<service::IdentityService> identityService)
-            : identityService_(move(identityService)) {}
+        UserController(shared_ptr<service::IdentityService> identityService,
+                      shared_ptr<service::ratelimit::RateLimiter> rateLimiter = nullptr)
+            : identityService_(move(identityService)),
+              rateLimiter_(move(rateLimiter)) {}
 
         void handleRequest(HTTPServerRequest &request, HTTPServerResponse &response) override;
     };

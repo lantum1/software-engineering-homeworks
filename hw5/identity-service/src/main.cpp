@@ -9,12 +9,14 @@
 #include <Poco/Util/OptionSet.h>
 #include <Poco/Util/HelpFormatter.h>
 #include <Poco/AutoPtr.h>
+#include <Poco/SharedPtr.h>
 #include <Poco/Data/PostgreSQL/Connector.h>
 #include <Poco/Logger.h>
 
 #include "controller/UserController.h"
 #include "service/IdentityService.h"
 #include "service/cache/ServiceCache.h"
+#include "service/ratelimit/RateLimiter.h"
 #include "repository/PostgreSQLUserAuthRepository.h"
 #include "repository/PostgreSQLUserProfileRepository.h"
 #include "kafka/StubNotificationPublisher.h"
@@ -28,17 +30,21 @@ class IdentityRequestHandlerFactory : public HTTPRequestHandlerFactory
 {
 private:
     shared_ptr<service::IdentityService> identityService_;
+    shared_ptr<service::ratelimit::RateLimiter> rateLimiter_;
 
 public:
-    explicit IdentityRequestHandlerFactory(shared_ptr<service::IdentityService> identityService)
-        : identityService_(move(identityService)) {}
+    IdentityRequestHandlerFactory(
+        shared_ptr<service::IdentityService> identityService,
+        shared_ptr<service::ratelimit::RateLimiter> rateLimiter)
+        : identityService_(move(identityService)),
+          rateLimiter_(move(rateLimiter)) {}
 
     HTTPRequestHandler *createRequestHandler(const HTTPServerRequest &request) override
     {
         const auto &uri = request.getURI();
         if (uri.find("/v1/users") == 0)
         {
-            return new controller::UserController(identityService_);
+            return new controller::UserController(identityService_, rateLimiter_);
         }
         return nullptr;
     }
@@ -197,6 +203,18 @@ protected:
                 );
             }
 
+            shared_ptr<service::ratelimit::RateLimiter> rateLimiter;
+            try
+            {
+                rateLimiter = make_shared<service::ratelimit::RateLimiter>(_redisHost, _redisPort, "identity");
+            }
+            catch (const exception &ex)
+            {
+                Poco::Logger::get("IdentityService").warning(
+                    "Rate limiter connection failed, running without rate limiting: " + string(ex.what())
+                );
+            }
+
             auto userAuthRepository = make_unique<repository::PostgreSQLUserAuthRepository>(connectionString);
             auto userProfileRepository = make_unique<repository::PostgreSQLUserProfileRepository>(connectionString);
             auto notificationPublisher = make_unique<notification::StubNotificationPublisher>();
@@ -208,6 +226,9 @@ protected:
                 move(serviceCache)
             );
 
+            Poco::SharedPtr<IdentityRequestHandlerFactory> requestHandlerFactory = 
+                new IdentityRequestHandlerFactory(identityService, rateLimiter);
+
             ServerSocket socket(_port);
 
             Poco::AutoPtr<HTTPServerParams> params = new HTTPServerParams();
@@ -216,7 +237,7 @@ protected:
             params->setThreadIdleTime(10000);
 
             HTTPServer server(
-                new IdentityRequestHandlerFactory(identityService),
+                requestHandlerFactory,
                 socket,
                 params);
 

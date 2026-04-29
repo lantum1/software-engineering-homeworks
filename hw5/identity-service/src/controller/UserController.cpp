@@ -37,8 +37,42 @@ namespace maxdisk::identity::controller
         return nullopt;
     }
 
+    void UserController::setRateLimitHeaders(HTTPServerResponse &response, const service::ratelimit::RateLimitResult &result)
+    {
+        if (result.limit > 0)
+        {
+            response.set("X-RateLimit-Limit", to_string(result.limit));
+        }
+        if (result.remaining >= 0)
+        {
+            response.set("X-RateLimit-Remaining", to_string(result.remaining));
+        }
+        if (result.resetSeconds > 0)
+        {
+            response.set("X-RateLimit-Reset", to_string(result.resetSeconds));
+        }
+    }
+
+    void UserController::sendRateLimitResponse(HTTPServerResponse &response, const service::ratelimit::RateLimitResult &result)
+    {
+        setRateLimitHeaders(response, result);
+
+        if (result.retryAfter > 0)
+        {
+            response.set("Retry-After", to_string(result.retryAfter));
+        }
+
+        util::JsonHelper::setJsonResponse(
+            response,
+            util::JsonHelper::errorResponse("Слишком много запросов. Повторите позже."),
+            HTTPResponse::HTTP_TOO_MANY_REQUESTS);
+    }
+
     void UserController::handleLogin(HTTPServerRequest &request, HTTPServerResponse &response)
     {
+        service::ratelimit::RateLimitResult rateLimitResult(true, 10, 10, 60);
+        string loginFromRequest;
+
         try
         {
             istream &inputStream = request.stream();
@@ -46,32 +80,57 @@ namespace maxdisk::identity::controller
             Poco::StreamCopier::copyStream(inputStream, oss);
 
             auto loginReq = dto::LoginRequest::fromJson(oss.str());
-            auto loginResp = identityService_->authenticate(loginReq.login, loginReq.password);
+            loginFromRequest = loginReq.login;
 
+            if (rateLimiter_)
+            {
+                rateLimitResult = rateLimiter_->checkLogin(loginFromRequest);
+                if (!rateLimitResult.allowed)
+                {
+                    sendRateLimitResponse(response, rateLimitResult);
+                    return;
+                }
+            }
+
+            auto loginResp = identityService_->authenticate(loginFromRequest, loginReq.password);
+
+            setRateLimitHeaders(response, rateLimitResult);
             util::JsonHelper::setJsonResponse(response, loginResp.toJson());
         }
         catch (const exception::InvalidCredentialsException &)
         {
+            setRateLimitHeaders(response, rateLimitResult);
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse("Неверный логин или пароль"),
-                HTTPResponse::HTTP_UNAUTHORIZED
-            );
+                HTTPResponse::HTTP_UNAUTHORIZED);
         }
-        catch (const std::exception & e)
+        catch (const std::exception &e)
         {
+            setRateLimitHeaders(response, rateLimitResult);
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse(e.what()),
-                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR
-            );
+                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     void UserController::handleRegister(HTTPServerRequest &request, HTTPServerResponse &response)
     {
+        service::ratelimit::RateLimitResult rateLimitResult(true, 1000, 1000, 60);
+
         try
         {
+            if (rateLimiter_)
+            {
+                rateLimitResult = rateLimiter_->checkRegister();
+                if (!rateLimitResult.allowed)
+                {
+                    sendRateLimitResponse(response, rateLimitResult);
+                    return;
+                }
+            }
+
             istream &inputStream = request.stream();
             ostringstream oss;
             Poco::StreamCopier::copyStream(inputStream, oss);
@@ -83,23 +142,24 @@ namespace maxdisk::identity::controller
             auto regResp = identityService_->registerUser(
                 regReq.phone, regReq.email, regReq.firstName, regReq.lastName, tempPassword);
 
+            setRateLimitHeaders(response, rateLimitResult);
             util::JsonHelper::setJsonResponse(response, regResp.toJson(), HTTPResponse::HTTP_CREATED);
         }
         catch (const exception::UserAlreadyExistsException &)
         {
+            setRateLimitHeaders(response, rateLimitResult);
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse("Пользователь уже существует"),
-                HTTPResponse::HTTP_CONFLICT
-            );
+                HTTPResponse::HTTP_CONFLICT);
         }
-        catch (const std::exception & e)
+        catch (const std::exception &e)
         {
+            setRateLimitHeaders(response, rateLimitResult);
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse(e.what()),
-                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR
-            );
+                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -110,8 +170,7 @@ namespace maxdisk::identity::controller
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse("Unauthorized"),
-                HTTPResponse::HTTP_UNAUTHORIZED
-            );
+                HTTPResponse::HTTP_UNAUTHORIZED);
             return;
         }
 
@@ -128,21 +187,19 @@ namespace maxdisk::identity::controller
                 util::JsonHelper::setJsonResponse(
                     response,
                     util::JsonHelper::errorResponse("Отсутствуют обязательные параметры - firstName, lastName"),
-                    HTTPResponse::HTTP_BAD_REQUEST
-                );
+                    HTTPResponse::HTTP_BAD_REQUEST);
                 return;
             }
 
             auto result = identityService_->searchUsersByNames(*firstNameOpt, *lastNameOpt);
             util::JsonHelper::setJsonResponse(response, result.toJson());
         }
-        catch (const std::exception & e)
+        catch (const std::exception &e)
         {
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse(e.what()),
-                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR
-            );
+                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -153,8 +210,7 @@ namespace maxdisk::identity::controller
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse("Unauthorized"),
-                HTTPResponse::HTTP_UNAUTHORIZED
-            );
+                HTTPResponse::HTTP_UNAUTHORIZED);
             return;
         }
 
@@ -169,8 +225,7 @@ namespace maxdisk::identity::controller
                 util::JsonHelper::setJsonResponse(
                     response,
                     util::JsonHelper::errorResponse("Отсутствует обязательный параметр - login"),
-                    HTTPResponse::HTTP_BAD_REQUEST
-                );
+                    HTTPResponse::HTTP_BAD_REQUEST);
                 return;
             }
 
@@ -182,16 +237,14 @@ namespace maxdisk::identity::controller
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse("Пользователь не найден"),
-                HTTPResponse::HTTP_NOT_FOUND
-            );
+                HTTPResponse::HTTP_NOT_FOUND);
         }
-        catch (const std::exception & e)
+        catch (const std::exception &e)
         {
             util::JsonHelper::setJsonResponse(
                 response,
                 util::JsonHelper::errorResponse(e.what()),
-                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR
-            );
+                HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
