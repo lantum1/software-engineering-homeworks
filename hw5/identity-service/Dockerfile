@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     libpoco-dev \
     libssl-dev \
     libpq-dev \
+    libhiredis-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -27,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     libpoco-dev \
     libssl3 \
     libpq5 \
+    libhiredis0.14 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean

@@ -11,6 +11,7 @@
 #include "../dto/CreateFolderResponse.h"
 #include "../dto/CreateFileResponse.h"
 #include "../dto/GetFoldersResponse.h"
+#include "cache/ServiceCache.h"
 
 using namespace std;
 
@@ -21,20 +22,17 @@ namespace maxdisk::filemanagement::service
     {
     private:
         unique_ptr<repository::IFileManagementRepository> repository_;
+        unique_ptr<cache::ServiceCache> cache_;
 
         mongocxx::pool &pool_;
         string dbName_;
 
     public:
-        explicit FileManagementService(
+        FileManagementService(
             unique_ptr<repository::IFileManagementRepository> repository,
             mongocxx::pool &pool,
-            string dbName)
-            : repository_(std::move(repository)),
-              pool_(pool),
-              dbName_(std::move(dbName))
-        {
-        }
+            string dbName,
+            unique_ptr<cache::ServiceCache> cache = nullptr); 
 
         dto::CreateFolderResponse createFolder(const string &userId, const string &name);
 

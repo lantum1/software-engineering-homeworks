@@ -12,11 +12,37 @@ namespace maxdisk::identity::service
     IdentityService::IdentityService(
         unique_ptr<repository::IUserAuthRepository> userAuthRepository,
         unique_ptr<repository::IUserProfileRepository> userProfileRepository,
-        unique_ptr<notification::INotificationPublisher> notificationPublisher)
+        unique_ptr<notification::INotificationPublisher> notificationPublisher,
+        unique_ptr<cache::ServiceCache> cache)
         : userAuthRepository_(move(userAuthRepository)),
           userProfileRepository_(move(userProfileRepository)),
-          notificationPublisher_(move(notificationPublisher))
+          notificationPublisher_(move(notificationPublisher)),
+          cache_(move(cache))
     {
+    }
+
+    dto::User IdentityService::fetchUserByLoginFromDb(const string &login)
+    {
+        auto authOpt = userAuthRepository_->findByLogin(login);
+        if (!authOpt)
+        {
+            throw exception::UserNotFoundException();
+        }
+
+        auto profileOpt = userProfileRepository_->findByUserId(authOpt->id);
+        if (!profileOpt)
+        {
+            throw exception::UserNotFoundException();
+        }
+
+        dto::User user;
+        user.id = authOpt->id;
+        user.login = authOpt->login;
+        user.firstName = profileOpt->firstName;
+        user.lastName = profileOpt->lastName;
+        user.email = profileOpt->email;
+        user.phone = profileOpt->phone;
+        return user;
     }
 
     dto::LoginResponse IdentityService::authenticate(const string &login, const string &password)
@@ -91,25 +117,21 @@ namespace maxdisk::identity::service
 
     dto::User IdentityService::searchUserByLogin(const string &login)
     {
-        auto authOpt = userAuthRepository_->findByLogin(login);
-        if (!authOpt)
+        if (cache_)
         {
-            throw exception::UserNotFoundException();
+            auto cached = cache_->getUserByLogin(login);
+            if (cached)
+            {
+                return *cached;
+            }
         }
 
-        auto profileOpt = userProfileRepository_->findByUserId(authOpt->id);
-        if (!profileOpt)
+        auto user = fetchUserByLoginFromDb(login);
+        if (cache_)
         {
-            throw exception::UserNotFoundException();
+            cache_->setUserByLogin(login, user);
         }
 
-        dto::User user;
-        user.id = authOpt->id;
-        user.login = authOpt->login;
-        user.firstName = profileOpt->firstName;
-        user.lastName = profileOpt->lastName;
-        user.email = profileOpt->email;
-        user.phone = profileOpt->phone;
         return user;
     }
 

@@ -2,6 +2,8 @@
 
 #include <string>
 #include <Poco/JSON/Object.h>
+#include "Poco/JSON/Parser.h"
+#include "Poco/Dynamic/Var.h"
 
 using namespace std;
 
@@ -36,6 +38,25 @@ namespace maxdisk::identity::dto
             ostringstream oss;
             obj.stringify(oss);
             return oss.str();
+        }
+
+        static User fromJson(const string &jsonStr)
+        {
+            User user;
+            
+            Poco::JSON::Parser parser;
+            Poco::Dynamic::Var parsed = parser.parse(jsonStr);
+            Poco::JSON::Object::Ptr obj = parsed.extract<Poco::JSON::Object::Ptr>();
+
+            if (!obj.isNull())
+            {
+                user.id = obj->getValue<string>("id");
+                user.login = obj->getValue<string>("login");
+                user.firstName = obj->getValue<string>("firstName");
+                user.lastName = obj->getValue<string>("lastName");
+            }
+
+            return user;
         }
 
         static User fromRegistrationRequest(

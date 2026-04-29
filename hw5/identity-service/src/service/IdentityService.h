@@ -10,6 +10,7 @@
 #include "../dto/LoginResponse.h"
 #include "../dto/UserRegistrationResponse.h"
 #include "../dto/GetUsersResponse.h"
+#include "cache/ServiceCache.h" 
 
 using namespace std;
 
@@ -22,12 +23,15 @@ namespace maxdisk::identity::service
         unique_ptr<repository::IUserAuthRepository> userAuthRepository_;
         unique_ptr<repository::IUserProfileRepository> userProfileRepository_;
         unique_ptr<notification::INotificationPublisher> notificationPublisher_;
+        unique_ptr<cache::ServiceCache> cache_;
 
+        dto::User fetchUserByLoginFromDb(const string& login);
     public:
         IdentityService(
             unique_ptr<repository::IUserAuthRepository> userAuthRepository,
             unique_ptr<repository::IUserProfileRepository> userProfileRepository,
-            unique_ptr<notification::INotificationPublisher> notificationPublisher
+            unique_ptr<notification::INotificationPublisher> notificationPublisher,
+            unique_ptr<cache::ServiceCache> cache = nullptr
         );
 
         dto::LoginResponse authenticate(const string &login, const string &password);

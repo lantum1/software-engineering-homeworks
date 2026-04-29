@@ -98,6 +98,18 @@ namespace maxdisk::filemanagement::service
         bucket.delete_file(id_value.view());
     }
 
+    FileManagementService::FileManagementService(
+        unique_ptr<repository::IFileManagementRepository> repository,
+        mongocxx::pool &pool,
+        string dbName,
+        unique_ptr<cache::ServiceCache> cache)
+        : repository_(move(repository)),
+          cache_(move(cache)),
+          pool_(pool),
+          dbName_(move(dbName))
+    {
+    }
+
     dto::CreateFolderResponse FileManagementService::createFolder(const string &userId, const string &name)
     {
         if (repository_->findFolderByName(userId, name).has_value())
@@ -112,11 +124,21 @@ namespace maxdisk::filemanagement::service
         auto entity = fromDtoFolder(folder, createdAt);
         repository_->saveFolder(move(entity));
 
+        if (cache_) {
+            cache_->removeFoldersByUserId(userId);
+        }
+
         return dto::CreateFolderResponse(folderId);
     }
 
     dto::GetFoldersResponse FileManagementService::listFolders(const string &userId)
     {
+        if (cache_) {
+            if (auto cached = cache_->getFoldersByUserId(userId)) {
+                return *cached;
+            }
+        }
+
         auto entities = repository_->findFoldersByUserId(userId);
         vector<dto::Folder> folders;
         folders.reserve(entities.size());
@@ -126,7 +148,13 @@ namespace maxdisk::filemanagement::service
             folders.push_back(toDtoFolder(entity));
         }
 
-        return dto::GetFoldersResponse(move(folders));
+        dto::GetFoldersResponse response(move(folders));
+
+        if (cache_) {
+            cache_->setFoldersByUserId(userId, response);
+        }
+
+        return response;
     }
 
     bool FileManagementService::deleteFolder(const string &userId, const string &folderId)
@@ -164,7 +192,13 @@ namespace maxdisk::filemanagement::service
             }
         }
 
-        return repository_->deleteFolderById(folderId);
+        bool result = repository_->deleteFolderById(folderId);
+
+        if (cache_ && result) {
+            cache_->removeFoldersByUserId(userId);
+        }
+
+        return result;
     }
 
     dto::CreateFileResponse FileManagementService::createFile(

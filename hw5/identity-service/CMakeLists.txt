@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Poco REQUIRED Net Util JSON Data DataPostgreSQL)
 find_package(OpenSSL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(HIREDIS REQUIRED hiredis)
 
 find_library(PQ_LIBRARY NAMES pq REQUIRED)
 find_path(PQ_INCLUDE_DIR NAMES libpq-fe.h PATHS /usr/include/postgresql REQUIRED)
@@ -37,6 +39,7 @@ add_library(identity-service-lib STATIC ${ALL_SOURCES})
 
 target_include_directories(identity-service-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${HIREDIS_INCLUDE_DIRS}
 )
 
 target_link_libraries(identity-service-lib PRIVATE
@@ -48,6 +51,7 @@ target_link_libraries(identity-service-lib PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     jwt-cpp::jwt-cpp
+    ${HIREDIS_LIBRARIES}
 )
 
 target_compile_options(identity-service-lib PRIVATE
@@ -84,11 +88,13 @@ if(BUILD_TESTS)
     target_link_libraries(identity-service-tests PRIVATE
         identity-service-lib
         GTest::gtest_main
+        ${HIREDIS_LIBRARIES}
     )
     
     target_include_directories(identity-service-tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        ${HIREDIS_INCLUDE_DIRS}
     )
     
     if(TARGET PostgreSQL::client)

@@ -14,6 +14,7 @@
 
 #include "controller/UserController.h"
 #include "service/IdentityService.h"
+#include "service/cache/ServiceCache.h"
 #include "repository/PostgreSQLUserAuthRepository.h"
 #include "repository/PostgreSQLUserProfileRepository.h"
 #include "kafka/StubNotificationPublisher.h"
@@ -53,6 +54,9 @@ private:
     string _dbUser = "postgres";
     string _dbPassword = "postgres";
     int _dbPort = 5432;
+    
+    string _redisHost = "redis";
+    int _redisPort = 6379;
 
 protected:
     void defineOptions(OptionSet &options) override
@@ -107,6 +111,18 @@ protected:
                               .argument("port")
                               .callback(OptionCallback<IdentityServiceApp>(
                                   this, &IdentityServiceApp::handleDbPortOption)));
+
+        options.addOption(Option("redis-host", "", "Redis host")
+                              .required(false)
+                              .argument("host")
+                              .callback(OptionCallback<IdentityServiceApp>(
+                                  this, &IdentityServiceApp::handleRedisHostOption)));
+
+        options.addOption(Option("redis-port", "", "Redis port")
+                              .required(false)
+                              .argument("port")
+                              .callback(OptionCallback<IdentityServiceApp>(
+                                  this, &IdentityServiceApp::handleRedisPortOption)));
     }
 
     void handlePortOption(const string &, const string &value)
@@ -144,6 +160,16 @@ protected:
         _dbPort = stoi(value);
     }
 
+    void handleRedisHostOption(const string &, const string &value)
+    {
+        _redisHost = value;
+    }
+
+    void handleRedisPortOption(const string &, const string &value)
+    {
+        _redisPort = stoi(value);
+    }
+
     int main(const vector<string> &) override
     {
         try
@@ -155,6 +181,21 @@ protected:
                 " dbname=" + _dbName + 
                 " user=" + _dbUser + 
                 " password=" + _dbPassword;
+            
+            unique_ptr<service::cache::ServiceCache> serviceCache;
+            try
+            {
+                serviceCache = make_unique<service::cache::ServiceCache>(_redisHost, _redisPort, "identity");
+                Poco::Logger::get("IdentityService").information(
+                    "Redis cache connected: " + _redisHost + ":" + to_string(_redisPort)
+                );
+            }
+            catch (const exception &ex)
+            {
+                Poco::Logger::get("IdentityService").warning(
+                    "Redis cache connection failed, running without cache: " + string(ex.what())
+                );
+            }
 
             auto userAuthRepository = make_unique<repository::PostgreSQLUserAuthRepository>(connectionString);
             auto userProfileRepository = make_unique<repository::PostgreSQLUserProfileRepository>(connectionString);
@@ -163,7 +204,9 @@ protected:
             auto identityService = make_shared<service::IdentityService>(
                 move(userAuthRepository),
                 move(userProfileRepository),
-                move(notificationPublisher));
+                move(notificationPublisher),
+                move(serviceCache)
+            );
 
             ServerSocket socket(_port);
 

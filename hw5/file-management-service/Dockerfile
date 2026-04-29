@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libpoco-dev \
     ca-certificates \
+    libhiredis-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
@@ -42,6 +44,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libmongoc-1.0-0 \
     libbson-1.0-0 \
+    libhiredis0.14 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

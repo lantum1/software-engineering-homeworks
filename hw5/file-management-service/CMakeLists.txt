@@ -9,6 +9,8 @@ find_package(Poco REQUIRED Net Util JSON Crypto)
 find_package(OpenSSL REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
 find_package(bsoncxx CONFIG REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(HIREDIS REQUIRED hiredis)
 
 include(FetchContent)
 
@@ -28,6 +30,7 @@ add_library(file-management-service-lib STATIC ${ALL_SOURCES})
 
 target_include_directories(file-management-service-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${HIREDIS_INCLUDE_DIRS}
 )
 
 target_link_libraries(file-management-service-lib PRIVATE
@@ -38,6 +41,7 @@ target_link_libraries(file-management-service-lib PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     jwt-cpp::jwt-cpp
+    ${HIREDIS_LIBRARIES}
 )
 
 target_link_libraries(file-management-service-lib PUBLIC

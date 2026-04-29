@@ -19,6 +19,7 @@
 #include "controller/FileManagementController.h"
 #include "service/FileManagementService.h"
 #include "repository/MongoFileManagementRepository.h"
+#include "service/cache/ServiceCache.h"
 
 using namespace std;
 using namespace maxdisk::filemanagement;
@@ -53,6 +54,8 @@ private:
     int _threads = 4;
     string _mongoUri = "mongodb://file-management-db:27017";
     string _mongoDb = "file-management";
+    string _redisHost = "redis";
+    int _redisPort = 6379;
 
 protected:
     void defineOptions(OptionSet &options) override
@@ -74,17 +77,40 @@ protected:
         options.addOption(Option("mongo-db", "b", "MongoDB database name")
                               .argument("name")
                               .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handleMongoDbOption)));
+
+        options.addOption(Option("redis-host", "", "Redis host")
+                              .required(false)
+                              .argument("host")
+                              .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handleRedisHostOption)));
+
+        options.addOption(Option("redis-port", "", "Redis port")
+                              .required(false)
+                              .argument("port")
+                              .callback(OptionCallback<FileManagementApp>(this, &FileManagementApp::handleRedisPortOption)));
     }
 
     void handlePortOption(const string &, const string &value) { _port = stoi(value); }
     void handleThreadsOption(const string &, const string &value) { _threads = stoi(value); }
     void handleMongoUriOption(const string &, const string &value) { _mongoUri = value; }
     void handleMongoDbOption(const string &, const string &value) { _mongoDb = value; }
+    void handleRedisHostOption(const string &, const string &value) { _redisHost = value; }
+    void handleRedisPortOption(const string &, const string &value) { _redisPort = stoi(value); }
 
     int main(const vector<string> &) override
     {
         try
         {
+            unique_ptr<service::cache::ServiceCache> fileCache;
+            try
+            {
+                fileCache = make_unique<service::cache::ServiceCache>(_redisHost, _redisPort, "filemanagement");
+                Poco::Logger::get("FileManagementService").information("Redis cache connected: " + _redisHost + ":" + to_string(_redisPort));
+            }
+            catch (const exception &ex)
+            {
+                Poco::Logger::get("FileManagementService").warning("Redis cache connection failed: " + string(ex.what()));
+            }
+
             mongocxx::instance instance{};
 
             mongocxx::pool pool{mongocxx::uri{_mongoUri}};
@@ -96,7 +122,8 @@ protected:
             auto service = make_shared<service::FileManagementService>(
                 std::move(repository),
                 pool,
-                _mongoDb);
+                _mongoDb,
+                move(fileCache));
 
             ServerSocket socket(_port);
             Poco::AutoPtr<HTTPServerParams> params = new HTTPServerParams();
