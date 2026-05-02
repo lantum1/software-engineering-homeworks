@@ -83,6 +83,16 @@ string LoginHandler::proxyLoginRequest(HTTPServerRequest &request, HTTPServerRes
 
     statusCode = static_cast<int>(proxyResponse.getStatus());
 
+    for (const auto &header : proxyResponse)
+    {
+        string headerName = header.first;
+        if (headerName.find("X-RateLimit") != string::npos || 
+            headerName == "Retry-After")
+        {
+            response.set(header.first, header.second);
+        }
+    }
+
     stringstream responseBody;
     Poco::StreamCopier::copyStream(rs, responseBody);
 
